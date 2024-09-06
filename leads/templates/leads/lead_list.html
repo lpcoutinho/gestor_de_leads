@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gestor de Leads</title>
+    <script>
+        function sendMessage(leadId) {
+            fetch(`/leads/send_message/${leadId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    // Se necessário, envie informações adicionais aqui, como número de telefone, mensagem, etc.
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('Mensagem enviada com sucesso!');
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Ocorreu um erro ao enviar a mensagem.');
+            });
+        }
+        
+
+        function sendMessageToAll() {
+            // Coleta os IDs de todos os leads visíveis na página
+            let leadIds = [];
+            document.querySelectorAll('input[name="lead_ids"]').forEach(input => {
+                leadIds.push(input.value);  // Coletar o valor de cada campo oculto (ID dos leads)
+            });
+        
+            // Verifique se os IDs foram coletados corretamente
+            console.log('Lead IDs:', leadIds);
+            // alert(leadIds);  // Mostrar os IDs coletados para depuração
+        
+            // Envia os IDs para o servidor via AJAX
+            fetch("{% url 'send_message_to_all' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ lead_ids: leadIds })  // Enviar os IDs coletados como JSON
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'Mensagens enviadas com sucesso') {
+                    alert('Mensagens enviadas com sucesso!');
+                    location.reload();
+                } else {
+                    alert('Ocorreram erros: ' + data.errors.join(', '));
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao enviar as mensagens.');
+            });
+        }
+        
+    </script>
+</head>
+<body>
+    <h1><a href="{% url 'lead_list' %}">Lista de Leads</a></h1>
+
+    <!-- Botão para enviar mensagem a todos os leads -->
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+    <button id="send-to-all" onclick="sendMessageToAll()">Enviar mensagem para todos</button>
+   
+
+    <!-- Formulário de Filtros -->
+     <p>Idade, Valor Hora, Mídias e Seguidores filtram os dados até o valor informado</p>
+    <form method="GET" action=".">
+        <label for="estado">Estado:</label>
+        <select name="estado" id="estado" onchange="this.form.submit()">
+            <option value="">-- Selecione um Estado --</option>
+            {% for sigla, nome in estados %}
+                <option value="{{ sigla }}" {% if estado_selecionado == sigla %}selected{% endif %}>
+                    {{ nome }}
+                </option>
+            {% endfor %}
+        </select>
+    
+        <label for="local">Local:</label>
+        <select name="local" id="local" onchange="this.form.submit()">
+            <option value="">-- Selecione o Tipo de Local --</option>
+            {% for local, nome in tem_local %}
+                <option value="{{ local }}" {% if tem_local_selecionado == local %}selected{% endif %}>
+                    {{ nome }}
+                </option>
+            {% endfor %}
+        </select>
+    
+        <label for="idade">Idade:</label>
+        <input type="number" name="idade" id="idade" value="{{ idade_selecionada }}" onchange="this.form.submit()">
+    
+        <label for="valor_hora">Valor Hora:</label>
+        <input type="number" name="valor_hora" id="valor_hora" value="{{ valor_hora_selecionado }}" onchange="this.form.submit()">
+    
+        <label for="midias">Mídias:</label>
+        <input type="text" name="midias" id="midias" value="{{ midias_selecionado }}" onchange="this.form.submit()">
+    
+        <label for="seguidores">Seguidores:</label>
+        <input type="number" name="seguidores" id="seguidores" value="{{ seguidores_selecionado }}" onchange="this.form.submit()">
+    </form>
+    
+
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Sexo</th>
+                <th>Telefone</th>
+                <th>Valor Hora</th>
+                <th>Mídias</th>
+                <th>Idade</th>
+                <th>Seguidores</th>
+                <th>Local</th>
+                <th>Cidade</th>
+                <th>Estado</th>
+                <th>Quem Atende</th>
+                <th>URL</th>
+                <th>Status</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lead in page_obj %}
+            <tr>
+                <td>{{ lead.nome }}</td>
+                <td>{{ lead.sexo }}</td>
+                <td>{{ lead.telefone }}</td>
+                <td>{{ lead.valor_hora }}</td>
+                <td>{{ lead.midias }}</td>
+                <td>{{ lead.idade }}</td>
+                <td>{{ lead.seguidores }}</td>
+                <td>{{ lead.local }}</td>
+                <td>{{ lead.cidade }}</td>
+                <td>{{ lead.estado }}</td>
+                <td>{{ lead.quem_atende }}</td>
+                <td><a href="{{ lead.url }}" target="_blank">{{ lead.url }}</a></td>
+                <td>{{ lead.status_lead }}</td>
+                <td>
+                    <button onclick="sendMessage('{{ lead.id }}')">Enviar Mensagem</button>
+                    <!-- Adicione um campo oculto com o ID do lead -->
+                    <input type="hidden" name="lead_ids" value="{{ lead.id }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Controles de Navegação -->
+    <div>
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">&laquo; primeira</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">anterior</a>
+            {% endif %}
+
+            <span class="current">
+                Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">próxima</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">última &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+</body>
+</html>
